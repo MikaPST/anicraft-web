@@ -1,0 +1,7 @@
+services:
+  anicraft-web:
+    image: ghcr.io/mikapst/anicraft-web:latest
+    container_name: anicraft-web
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
