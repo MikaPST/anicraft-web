@@ -6,10 +6,11 @@
 <p align="center">
   A community-maintained Docker image for
   <a href="https://github.com/storytold/anicraft">AniCraft</a>,
-  providing its browser-based 2D animation editor through a self-hosted web interface.
+  bringing its WebAssembly-based 2D animation editor to a self-hosted web interface.
   <br>
-  Build automation and image publication to GitHub Container Registry (GHCR).
+  Automated builds and image publication to GitHub Container Registry (GHCR).
 </p>
+
 <p align="center">
   <a href="https://github.com/MikaPST/anicraft-web/actions/workflows/publish-image.yml">
     <img src="https://github.com/MikaPST/anicraft-web/actions/workflows/publish-image.yml/badge.svg" alt="Build and publish AniCraft Web">
@@ -29,47 +30,57 @@
 
 ## Why this repository?
 
-The official AniCraft project provides a WebAssembly-based 2D animation editor that can be hosted as a static website. This repository packages the web application into a Docker image to simplify self-hosting.
+The official AniCraft project provides a WebAssembly-based 2D animation editor that can be hosted as a static website. This repository builds the official web application and packages its generated assets into a lightweight NGINX Docker image for straightforward self-hosting.
 
 The goals are to:
-- Build the AniCraft Web application from the upstream source code.
-- Publish a ready-to-run Docker image to GHCR.
-- Automatically build a versioned image when a new official AniCraft release is published.
-- Publish a matching GitHub Release in this repository, using the official version and release notes.
-- Provide a convenient deployment option for Unraid Community Applications.
-- Offer a simple Docker Compose configuration for users who prefer managing containers with Compose.
-- Keep the packaging and deployment configuration separate from the upstream AniCraft project.
 
-This is a packaging and distribution project, not a fork intended to develop a separate 2D animation editor.
+- Build AniCraft Web from a specific official upstream release.
+- Publish ready-to-run Docker images to GHCR for `linux/amd64` and `linux/arm64`.
+- Automatically detect and package new official AniCraft releases.
+- Publish a matching GitHub Release **only after the Docker image has been successfully pushed**.
+- Provide Docker Compose deployment and support a separately maintained Unraid Community Applications template.
+- Keep the `Dockerfile`, `nginx.conf`, `.dockerignore`, and GitHub Actions workflow version-controlled in this repository.
+- Preserve upstream license and attribution notices in the published web assets.
+
+This is an independent packaging and distribution project, not a fork intended to develop a separate animation editor.
 
 ## How it works
 
-AniCraft Web runs directly in the user's browser using WebAssembly. The Docker container serves the static web application through NGINX; it does not provide a remote Linux desktop.
-- **Browser-based interface:** access the editor through a web browser.
-- **Local file selection:** opening a file uses the browser's file picker.
-- **Browser downloads:** saving and exporting documents uses the browser's download mechanism.
-- **No remote desktop:** no VNC, remote desktop session or Linux graphical environment is required.
-- **Self-hosted:** run the application on your own server and access it over your local network or through a properly configured reverse proxy.
+AniCraft Web runs directly in the user's browser using WebAssembly. The Docker container serves the static web application through NGINX; it does **not** provide a remote Linux desktop or server-side document storage.
 
-File selection, editing and export are handled by the browser application. The container serves the application files rather than acting as a document-storage service. AniCraft browser autosaves use site-local browser storage; for remote access, HTTPS is required for secure-context browser features such as Web Locks. The browser edition currently has limitations compared with the desktop application (see the upstream web documentation).
+- **Browser-based animation editor:** create and edit 2D animation projects through a compatible web browser.
+- **Local file selection:** opening files uses the browser's file picker.
+- **Browser downloads:** saving and exporting files uses browser download mechanisms.
+- **Browser-local autosaves:** AniCraft uses site-local browser storage for autosave data.
+- **No remote desktop:** no VNC, remote desktop session, or Linux graphical environment is required.
+- **Self-hosted:** run the application on your own server and access it on your LAN or through a properly configured HTTPS reverse proxy.
+
+File selection, editing, and export are handled by the browser application. The container serves application files rather than acting as a document-storage backend.
+
+> [!IMPORTANT]
+> Browser-local autosaves are not server-side backups. Keep independent copies of important projects and exports. Clearing browser site data or changing the site's origin may affect access to locally stored data.
+
+For remote access, use HTTPS. Browser features such as Web Locks require a secure context. The web edition currently has limitations compared with the desktop application; consult the [official web documentation](https://github.com/storytold/anicraft/blob/main/docs/web.md).
 
 ## Docker image
 
-Once a build has succeeded, the image is published to GitHub Container Registry:
+The image is published to GitHub Container Registry after a successful build:
 
 ```text
 ghcr.io/mikapst/anicraft-web:latest
 ```
 
-Each upstream AniCraft release is also published as a matching version tag. For example:
+Each successfully packaged upstream AniCraft release is also published under its official version tag. For example:
 
 ```text
 ghcr.io/mikapst/anicraft-web:v0.2.1
 ```
 
+Use a versioned tag to stay on a specific upstream release. The `latest` tag is mutable.
+
 ### Option 1 — Docker Compose (recommended)
 
-A `docker-compose.yml` file is provided at the root of this repository. It is the simplest way to start and maintain AniCraft Web with Docker Compose.
+A `docker-compose.yml` file is provided at the root of this repository:
 
 ```yaml
 services:
@@ -81,7 +92,7 @@ services:
     restart: unless-stopped
 ```
 
-From the repository root, start the application with:
+From the repository root, start the application:
 
 ```bash
 docker compose up -d
@@ -93,7 +104,7 @@ Open the application in your browser:
 http://YOUR_SERVER_IP:8080
 ```
 
-Replace `YOUR_SERVER_IP` with the IP address or hostname of your server. If Docker is running on your own computer, you can use `http://localhost:8080`.
+Replace `YOUR_SERVER_IP` with your server's IP address or hostname. If Docker runs on your computer, use `http://localhost:8080`. For access from another machine, prefer HTTPS through a reverse proxy to enable secure-context browser features.
 
 #### Useful Compose commands
 
@@ -109,11 +120,11 @@ docker compose up -d
 docker compose down
 ```
 
-No `.env` file or persistent volume is required for this basic setup. The host port is configured in `docker-compose.yml`; by default, port `8080` on the host is mapped to port `8080` in the container. To use a different host port, change the left-hand side of the mapping. For example, `8081:8080` exposes the application on host port `8081`.
+No `.env` file or persistent server-side application volume is required for the default configuration. To change the host port, edit the left-hand side of `8080:8080`; for example, `8081:8080` exposes the application on host port `8081`.
 
 ### Option 2 — Run directly with Docker
 
-If you prefer not to use Docker Compose, you can run the container directly:
+If you prefer not to use Docker Compose:
 
 ```bash
 docker pull ghcr.io/mikapst/anicraft-web:latest
@@ -125,89 +136,153 @@ docker run -d \
   ghcr.io/mikapst/anicraft-web:latest
 ```
 
-Open the application at:
+Open `http://YOUR_SERVER_IP:8080`, or `http://localhost:8080` when using the Docker host itself.
 
-```text
-http://YOUR_SERVER_IP:8080
-```
-
-Optional CPU and memory limits can be added to the `docker run` command if needed, for example `--cpus=2 --memory=2g`. These limits are not included in the default Compose file.
+Optional CPU and memory limits can be added to `docker run`, for example `--cpus=2 --memory=2g`. They are not included in the default Compose configuration.
 
 ### Network access and reverse proxies
 
-The container listens for HTTP traffic on port `8080`. For external access, use a reverse proxy such as Traefik to terminate HTTPS and forward requests to the container over HTTP.
+NGINX listens on port `8080`. For external access, use a reverse proxy such as Traefik to terminate HTTPS and forward requests to the container over HTTP.
 
-Do not expose an unencrypted HTTP port directly to the public Internet. Restrict access to your intended network or protect external access with HTTPS and appropriate access controls.
+Do not expose an unencrypted HTTP service directly to the public Internet. Restrict access to your intended network or protect external access with HTTPS and appropriate access controls.
 
-## Packaging files
+Because AniCraft uses browser-local storage and secure-context browser APIs, prefer a stable HTTPS origin for regular use. Browser data associated with one hostname or scheme is not automatically available under another origin.
 
-- `Dockerfile`: packages the compiled static web assets into an unprivileged NGINX image.
-- `nginx.conf`: serves WebAssembly with the correct MIME type and cache policy on port 8080.
-- `.dockerignore`: restricts the Docker build context to the generated static web assets and packaging files.
-- `.github/workflows/publish-image.yml`: checks upstream releases daily, builds the WebAssembly application and publishes the image.
+## Repository structure
+
+This repository maintains its own Docker packaging configuration while retrieving the official AniCraft source during automated builds.
+
+```text
+anicraft-web/
+├── .github/
+│   └── workflows/
+│       └── publish-image.yml
+├── .dockerignore
+├── Dockerfile
+├── nginx.conf
+├── docker-compose.yml
+└── README.md
+```
+
+| File | Purpose |
+|---|---|
+| `Dockerfile` | Packages the compiled static web application into an NGINX runtime image. |
+| `nginx.conf` | Configures the HTTP server, WebAssembly MIME types, and caching. |
+| `.dockerignore` | Excludes unnecessary files and directories from the Docker build context. |
+| `docker-compose.yml` | Provides a ready-to-use Docker Compose deployment. |
+| `.github/workflows/publish-image.yml` | Automates upstream release detection, WebAssembly compilation, multi-platform GHCR publication, and GitHub Releases. |
+| `README.md` | Documents the project, packaging architecture, and deployment methods. |
+
+### Docker build architecture
+
+Unlike PhotoCraft's multi-stage Dockerfile, AniCraft compiles its WebAssembly application **on the GitHub Actions runner before Docker packaging**.
+
+The build process follows these steps:
+
+1. GitHub Actions resolves the latest official AniCraft release, or the `upstream_tag` specified during manual dispatch.
+2. It checks out `storytold/anicraft` at the selected official release tag into `anicraft-src/`.
+3. Rust and the `wasm32-unknown-unknown` target are installed.
+4. The workflow reads the required `wasm-bindgen` version from the upstream `Cargo.lock` and installs the matching `wasm-bindgen-cli`.
+5. The official `scripts/build-web.sh` script compiles the WebAssembly application.
+6. The workflow validates essential output files in `anicraft-src/web/`, including `index.html`, `anicraft.js`, `anicraft_bg.wasm`, and `anicraft.png`. The HTML guide is included when available.
+7. The compiled site is copied into a temporary root-level `web/` directory. Available upstream licenses and attribution notices are copied into `web/licenses/`.
+8. Docker Buildx uses this repository's version-controlled `Dockerfile` and the prepared build context to publish `linux/amd64` and `linux/arm64` images, without recompiling Rust separately for each architecture.
+9. After GHCR publication succeeds, the workflow creates or updates the matching GitHub Release.
+
+The `anicraft-src/` and generated `web/` directories are temporary GitHub Actions workspace content; they are **not** committed to this packaging repository.
+
+The final runtime image serves static assets using NGINX. It does not require Rust, a database, a server-side project volume, or a remote desktop.
+
+> [!NOTE]
+> AniCraft is under active development. Future upstream releases may change its Rust dependencies, WebAssembly build script, or generated file layout and require packaging updates.
 
 ## Automated builds
 
-GitHub Actions checks the official AniCraft repository for new published releases.
+GitHub Actions checks the official [AniCraft releases](https://github.com/storytold/anicraft/releases) and builds the selected upstream release.
 
 | Trigger | Behaviour |
 |---|---|
-| Daily schedule | Checks the latest official AniCraft release and builds it if it has not already been published here |
-| Manual workflow dispatch | Builds the latest official release, or a specific upstream tag when provided |
-| Force rebuild | Rebuilds an already published upstream version and updates its MikaPST Release |
-| Workflow changes on `main` | Rebuilds the latest official upstream release using the updated packaging workflow |
+| Daily schedule (`03:47 UTC`) | Checks for a new official AniCraft release and skips it when already packaged. |
+| Manual workflow dispatch | Builds the latest official release or a specified `upstream_tag`. |
+| Force rebuild | Rebuilds an existing version with `force_rebuild: true`. |
+| Packaging changes on `main` | Rebuilds the latest upstream release when `.github/workflows/publish-image.yml`, `Dockerfile`, `nginx.conf`, or `.dockerignore` changes. |
 
-Each successful build publishes the following GHCR tags:
+### Published tags
 
-- `latest` — the most recently packaged official AniCraft release.
-- `<upstream-version>` — the exact upstream release tag, for example `v0.2.1`.
-- `upstream-<commit>` — the exact upstream source commit used for the image.
+Each successful build publishes these GHCR tags:
 
-The build targets `linux/amd64` and `linux/arm64`. The WebAssembly application is compiled once on the GitHub Actions runner using the official upstream build script; the resulting static files are packaged into multi-platform NGINX images. It checks out the official AniCraft source at the release tag and uses the versioned Dockerfile and NGINX configuration maintained in this repository.
+- `latest` — the most recently successfully packaged upstream release.
+- `<upstream-version>` — the exact official release tag, for example `v0.2.1`.
+- `upstream-<commit>` — the first 12 characters of the upstream source commit.
 
-After the image is successfully built and pushed, this repository creates or updates a GitHub Release with the same version tag. The MikaPST Release includes the upstream release notes, a link to the official release, the upstream commit, supported Docker platforms, image tags and image digest.
+Images target `linux/amd64` and `linux/arm64`. The WebAssembly application is compiled once on the GitHub Actions runner, then its static output is packaged into both runtime architectures.
 
-The workflow is idempotent: scheduled and ordinary manual runs skip a version that already has a Release in this repository. A manual run can force a rebuild when needed. Changes pushed to the packaging workflow trigger a rebuild of the current latest upstream release.
+The build uses the official AniCraft source at the selected release tag, combined with the version-controlled packaging configuration maintained in this repository.
+
+### GitHub Releases
+
+After a successful Docker build and GHCR push, the workflow creates or updates a [GitHub Release](https://github.com/MikaPST/anicraft-web/releases) matching the official upstream release tag.
+
+Each release includes:
+
+- The official upstream release name, link, and publication date.
+- The upstream version tag and 12-character source commit identifier.
+- Official upstream release notes.
+- Published Docker image tags.
+- Supported architectures (`linux/amd64` and `linux/arm64`).
+- The published Docker image digest.
+- A notice that the image is community-maintained packaging.
+
+The Release badge at the top of this README reflects the latest published GitHub Release.
+
+Scheduled and ordinary manual runs skip versions already released in this repository. To rebuild an existing version, open **Actions → Build and publish AniCraft Web → Run workflow** and enable `force_rebuild`. Changes to the monitored packaging files on `main` also trigger a rebuild.
 
 > [!IMPORTANT]
-> A new upstream release is not published to GHCR until its Docker build and multi-platform push have succeeded. The `latest` tag is mutable; use an explicit version tag when you need to keep a deployment on a specific AniCraft release.
-
-AniCraft is under active development. Test new images before relying on them for important work.
+> A GitHub Release is created or updated **only after** the multi-platform Docker image has been successfully pushed to GHCR.
+>
+> The `latest` tag is mutable. Pin a versioned image tag for a stable deployment, noting that a forced rebuild may also replace an existing version tag.
 
 ## Unraid Community Applications
 
-This image is intended to be distributed through the maintainer's existing Unraid Community Applications repository.
+AniCraft Web is intended to be distributed through the maintainer's [Unraid Community Applications repository](https://github.com/MikaPST/unraid-community-apps).
 
-A future Unraid template can reference the published GHCR image and expose the web port.
 - **Unraid Community Applications repository:** [MikaPST/unraid-community-apps](https://github.com/MikaPST/unraid-community-apps)
-- **AniCraft Web template:** to be added separately to [MikaPST/unraid-community-apps](https://github.com/MikaPST/unraid-community-apps) after the image is validated.
+- **Container image:** `ghcr.io/mikapst/anicraft-web:latest`
+- **Container port:** `8080`
+- **AniCraft Web template:** planned separately, after the Docker image has been validated.
 
-This repository contains the Dockerfile, NGINX configuration, image build, publication workflow and Docker Compose configuration. The Unraid Community Applications template is maintained separately.
+Until an AniCraft-specific XML template is published, deploy the image through Docker Compose or Unraid's Docker container configuration.
+
+The Unraid template, when available, will be maintained separately from this Docker packaging repository.
 
 ## Upstream project
 
-AniCraft is an open-source 2D animation editor developed by the ArtCraft Team and its contributors.
+AniCraft is an open-source 2D animation editor developed by the ArtCraft Team and contributors.
+
 - **Source code:** [storytold/anicraft](https://github.com/storytold/anicraft)
-- **Web build documentation:** [AniCraft web editor](https://github.com/storytold/anicraft/blob/main/docs/web.md)
-- **Official build script:** [scripts/build-web.sh](https://github.com/storytold/anicraft/blob/main/scripts/build-web.sh)
+- **Official web documentation:** [docs/web.md](https://github.com/storytold/anicraft/blob/main/docs/web.md)
+- **Official web build script:** [scripts/build-web.sh](https://github.com/storytold/anicraft/blob/main/scripts/build-web.sh)
 - **Official releases:** [AniCraft releases](https://github.com/storytold/anicraft/releases)
 
-This repository compiles the official AniCraft WebAssembly application from the selected upstream release tag, then packages the generated static site with its own versioned Dockerfile and NGINX configuration. The MikaPST Release tracks that upstream version but represents the community-maintained Docker packaging, not an official AniCraft release.
+This repository builds the official AniCraft WebAssembly application from a selected upstream release tag, using independent Docker packaging. Its GHCR images and GitHub Releases are **not** official AniCraft distributions.
 
 ## License and attribution
 
 AniCraft is dual-licensed under the **MIT License or Apache License 2.0**, at the user's option. Copyright belongs to the ArtCraft Team and AniCraft contributors.
 
-The upstream project includes license and attribution information for the application and bundled third-party assets. These notices and the applicable license files must be preserved when redistributing the application.
+The workflow copies available upstream `LICENSE-MIT`, `LICENSE-APACHE`, `NOTICE`, and `ATTRIBUTION.md` files into the published static site's `/licenses/` directory. Available third-party license notices are also preserved.
+
 - [Upstream MIT License](https://github.com/storytold/anicraft/blob/main/LICENSE-MIT)
 - [Upstream Apache License 2.0](https://github.com/storytold/anicraft/blob/main/LICENSE-APACHE)
 - [Upstream NOTICE](https://github.com/storytold/anicraft/blob/main/NOTICE)
 - [Upstream asset attributions](https://github.com/storytold/anicraft/blob/main/ATTRIBUTION.md)
 
-The build includes the upstream license and attribution notices under `/licenses/` in the served static files. The licenses for the upstream application do not automatically determine the license of the packaging files maintained in this repository. Refer to the repository's own `LICENSE` file for the terms applicable to those files.
+The upstream application's licenses do not automatically determine the license of this repository's independent packaging files. Refer to the packaging repository's own `LICENSE` file, if present, for their applicable terms.
 
-The AniCraft name, ArtCraft branding and logos remain subject to their respective trademark and usage terms. This repository is an independent community-maintained packaging project and is **not an official AniCraft release** and is not affiliated with or endorsed by the AniCraft or ArtCraft maintainers.
+The AniCraft name, artwork, and ArtCraft branding remain subject to their respective owners' rights. This repository is independently maintained and is not affiliated with or endorsed by the official maintainers.
 
 ## Disclaimer
 
-AniCraft is under active development. Features, compatibility and behaviour may change between builds. Use the application and its generated animations and documents at your own discretion.
+AniCraft is under active development. Features, browser compatibility, storage behaviour, and export capabilities may change between builds. Test new images and keep independent backups of important projects and animations.
+
+This repository is community-maintained and is not an official AniCraft release.
